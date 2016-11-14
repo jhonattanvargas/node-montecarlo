@@ -1,0 +1,86 @@
+#include <node.h>
+#include <iostream>
+#include <cstdlib>
+#include <pthread.h>
+#include <ctime>
+
+#define BILLION  1E9;
+
+using namespace std;
+
+using v8::Exception;
+using v8::FunctionCallbackInfo;
+using v8::Isolate;
+using v8::Local;
+using v8::Number;
+using v8::Object;
+using v8::String;
+using v8::Value;
+
+long incircle;
+long points_per_thread;
+pthread_mutex_t mutex = PTHREAD_MUTEX_INITIALIZER;
+
+void *runner(void *threadid) {
+  long incircle_thread = 0;
+  unsigned int rand_state = rand();
+  long i;
+  for (i = 0; i < points_per_thread; i++) {
+    double x = rand_r(&rand_state) / ((double)RAND_MAX + 1) * 2.0 - 1.0;
+    double y = rand_r(&rand_state) / ((double)RAND_MAX + 1) * 2.0 - 1.0;
+    if (x * x + y * y < 1) {
+      incircle_thread++;
+    }
+  }
+  pthread_mutex_lock(&mutex);
+  incircle += incircle_thread;
+  pthread_mutex_unlock(&mutex);
+}
+
+void parallel (const FunctionCallbackInfo<Value>& args) {
+
+  int thread_count = 4;
+  int rc;
+  int i;
+  long totalpoints = 4000000000;
+  points_per_thread = totalpoints / thread_count;
+
+  pthread_t threads[thread_count];
+
+  struct timespec requestStart, requestEnd;
+  //inicio tiempo de medida
+  clock_gettime(CLOCK_REALTIME, &requestStart);
+
+  for( i=0; i < thread_count; i++ ){
+    rc = pthread_create(&threads[i], NULL, runner, (void *) i);
+    if (rc){
+       cout << "Error:unable to create thread," << rc << endl;
+       exit(-1);
+    }
+  }
+
+  for( i=0; i < thread_count; i++ ){
+    pthread_join(threads[i],NULL);
+  }
+  double pi = (4. * (double)incircle) / ((double)points_per_thread * thread_count);
+  //fin tiempo de medida
+  clock_gettime(CLOCK_REALTIME, &requestEnd);
+
+  double accum = ( requestEnd.tv_sec - requestStart.tv_sec )
+      + ( requestEnd.tv_nsec - requestStart.tv_nsec )
+      / BILLION;
+  printf("Pi: %1.10lf\n", pi);
+  printf( "Time taken: %lf\n", accum );
+
+}
+
+void serial (const FunctionCallbackInfo<Value>& args) {
+  printf("serial");
+}
+
+void Init(Local<Object> exports) {
+NODE_SET_METHOD(exports, "parallel", parallel);
+NODE_SET_METHOD(exports, "serial", serial);
+}
+
+NODE_MODULE(addon, Init)
