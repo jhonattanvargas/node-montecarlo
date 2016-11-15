@@ -42,7 +42,7 @@ void parallel (const FunctionCallbackInfo<Value>& args) {
   int thread_count = 4;
   int rc;
   int i;
-  long totalpoints = 4000000000;
+  long totalpoints = 1000000;
   points_per_thread = totalpoints / thread_count;
 
   pthread_t threads[thread_count];
@@ -62,6 +62,9 @@ void parallel (const FunctionCallbackInfo<Value>& args) {
   for( i=0; i < thread_count; i++ ){
     pthread_join(threads[i],NULL);
   }
+
+  pthread_mutex_destroy(&mutex);
+
   double pi = (4. * (double)incircle) / ((double)points_per_thread * thread_count);
   //fin tiempo de medida
   clock_gettime(CLOCK_REALTIME, &requestEnd);
