@@ -2,6 +2,7 @@
 #include <iostream>
 #include <cstdlib>
 #include <pthread.h>
+#include <thread>
 #include <ctime>
 
 #define BILLION  1E9;
@@ -41,13 +42,15 @@ void *runner(void *threadid) {
 void parallel (const FunctionCallbackInfo<Value>& args) {
   Isolate* isolate = args.GetIsolate();
 
+  //define numero de cpus
+  unsigned cpus = std::thread::hardware_concurrency();
   //revisar que los argumentos sean correctos
-  if (args.Length() < 2) {
+  if (args.Length() < 1) {
     isolate->ThrowException(Exception::TypeError(
         String::NewFromUtf8(isolate, "Wrong number of arguments")));
     return;
   }
-  if (!args[0]->IsNumber() || !args[1]->IsNumber()) {
+  if (!args[0]->IsNumber()) {
     isolate->ThrowException(Exception::TypeError(
         String::NewFromUtf8(isolate, "Wrong arguments")));
     return;
@@ -55,20 +58,20 @@ void parallel (const FunctionCallbackInfo<Value>& args) {
   //fin revisión
 
   //int thread_count = 4;
-  int thread_count = args[1]->NumberValue();
+  //int thread_count = cpus;
   int rc;
   int i;
   //long totalpoints = 1000000;
   long totalpoints =  args[0]->NumberValue();
-  points_per_thread = totalpoints / thread_count;
+  points_per_thread = totalpoints / cpus;
 
-  pthread_t threads[thread_count];
+  pthread_t threads[cpus];
 
   struct timespec requestStart, requestEnd;
   //inicio tiempo de medida
   clock_gettime(CLOCK_REALTIME, &requestStart);
 
-  for( i=0; i < thread_count; i++ ){
+  for( i=0; i < cpus; i++ ){
     rc = pthread_create(&threads[i], NULL, runner, (void *) i);
     if (rc){
        cout << "Error:unable to create thread," << rc << endl;
@@ -76,13 +79,13 @@ void parallel (const FunctionCallbackInfo<Value>& args) {
     }
   }
 
-  for( i=0; i < thread_count; i++ ){
+  for( i=0; i < cpus; i++ ){
     pthread_join(threads[i],NULL);
   }
 
   pthread_mutex_destroy(&mutex);
 
-  double pi = (4. * (double)incircle) / ((double)points_per_thread * thread_count);
+  double pi = (4. * (double)incircle) / ((double)points_per_thread * cpus);
   //fin tiempo de medida
   clock_gettime(CLOCK_REALTIME, &requestEnd);
 
@@ -95,6 +98,7 @@ void parallel (const FunctionCallbackInfo<Value>& args) {
   Local<Object> obj = Object::New(isolate);
   obj->Set(String::NewFromUtf8(isolate, "pi"), Number::New(isolate, pi));
   obj->Set(String::NewFromUtf8(isolate, "time"), Number::New(isolate, accum));
+  obj->Set(String::NewFromUtf8(isolate, "cpus"), Number::New(isolate, cpus));
 
   args.GetReturnValue().Set(obj);
 
