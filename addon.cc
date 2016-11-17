@@ -133,9 +133,11 @@ void serial (const FunctionCallbackInfo<Value>& args) {
       serial_incircle++;
     }
   }
+
+  double pi = (4. * (double)serial_incircle / (double)totalpoints);
+
   //fin del tiempo de ejecución
   clock_gettime(CLOCK_REALTIME, &requestEnd);
-  double pi = (4. * (double)serial_incircle / (double)totalpoints);
 
   double accum = ( requestEnd.tv_sec - requestStart.tv_sec )
     + ( requestEnd.tv_nsec - requestStart.tv_nsec )
