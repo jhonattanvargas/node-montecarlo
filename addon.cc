@@ -116,9 +116,9 @@ void serial (const FunctionCallbackInfo<Value>& args) {
   }
   //fin revisión
 
-  unsigned long long serial_incircle = 0;
-  unsigned long long totalpoints = args[0]->NumberValue();
-  unsigned long long i;
+  long serial_incircle = 0;
+  long totalpoints = args[0]->NumberValue();
+  long i;
 
   srand((unsigned)time(NULL));
   unsigned int rand_state = rand();
