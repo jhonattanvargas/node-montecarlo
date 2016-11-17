@@ -35,14 +35,31 @@ void *runner(void *threadid) {
   pthread_mutex_lock(&mutex);
   incircle += incircle_thread;
   pthread_mutex_unlock(&mutex);
+  pthread_exit(NULL);
 }
 
 void parallel (const FunctionCallbackInfo<Value>& args) {
+  Isolate* isolate = args.GetIsolate();
 
-  int thread_count = 4;
+  //revisar que los argumentos sean correctos
+  if (args.Length() < 2) {
+    isolate->ThrowException(Exception::TypeError(
+        String::NewFromUtf8(isolate, "Wrong number of arguments")));
+    return;
+  }
+  if (!args[0]->IsNumber() || !args[1]->IsNumber()) {
+    isolate->ThrowException(Exception::TypeError(
+        String::NewFromUtf8(isolate, "Wrong arguments")));
+    return;
+  }
+  //fin revisión
+
+  //int thread_count = 4;
+  int thread_count = args[1]->NumberValue();
   int rc;
   int i;
-  long totalpoints = 1000000;
+  //long totalpoints = 1000000;
+  long totalpoints =  args[0]->NumberValue();
   points_per_thread = totalpoints / thread_count;
 
   pthread_t threads[thread_count];
@@ -72,13 +89,65 @@ void parallel (const FunctionCallbackInfo<Value>& args) {
   double accum = ( requestEnd.tv_sec - requestStart.tv_sec )
       + ( requestEnd.tv_nsec - requestStart.tv_nsec )
       / BILLION;
-  printf("Pi: %1.10lf\n", pi);
-  printf( "Time taken: %lf\n", accum );
+  //printf("Pi: %1.10lf\n", pi);
+  //printf( "Parallel Time taken: %lf\n", accum );
+
+  Local<Object> obj = Object::New(isolate);
+  obj->Set(String::NewFromUtf8(isolate, "pi"), Number::New(isolate, pi));
+  obj->Set(String::NewFromUtf8(isolate, "time"), Number::New(isolate, accum));
+
+  args.GetReturnValue().Set(obj);
 
 }
 
 void serial (const FunctionCallbackInfo<Value>& args) {
-  printf("serial");
+  Isolate* isolate = args.GetIsolate();
+
+  //revisar que los argumentos sean correctos
+  if (args.Length() < 1) {
+    isolate->ThrowException(Exception::TypeError(
+        String::NewFromUtf8(isolate, "Wrong number of arguments")));
+    return;
+  }
+  if (!args[0]->IsNumber()) {
+    isolate->ThrowException(Exception::TypeError(
+        String::NewFromUtf8(isolate, "Wrong arguments")));
+    return;
+  }
+  //fin revisión
+
+  unsigned long long serial_incircle = 0;
+  unsigned long long totalpoints = args[0]->NumberValue();
+  unsigned long long i;
+
+  srand((unsigned)time(NULL));
+  unsigned int rand_state = rand();
+  //inicio de tiempo de ejecución
+  struct timespec requestStart, requestEnd;
+  clock_gettime(CLOCK_REALTIME, &requestStart);
+
+  for (i = 0; i < totalpoints; i++) {
+    double x = rand_r(&rand_state) / ((double)RAND_MAX + 1) * 2.0 - 1.0;
+    double y = rand_r(&rand_state) / ((double)RAND_MAX + 1) * 2.0 - 1.0;
+    if (x * x + y * y < 1) {
+      serial_incircle++;
+    }
+  }
+  //fin del tiempo de ejecución
+  clock_gettime(CLOCK_REALTIME, &requestEnd);
+  double pi = (4. * (double)serial_incircle / (double)totalpoints);
+
+  double accum = ( requestEnd.tv_sec - requestStart.tv_sec )
+    + ( requestEnd.tv_nsec - requestStart.tv_nsec )
+    / BILLION;
+  //printf("Pi: %1.10lf\n", pi);
+  //printf( "Serial Time taken: %lf\n", accum );
+
+  Local<Object> obj = Object::New(isolate);
+  obj->Set(String::NewFromUtf8(isolate, "pi"), Number::New(isolate, pi));
+  obj->Set(String::NewFromUtf8(isolate, "time"), Number::New(isolate, accum));
+
+  args.GetReturnValue().Set(obj);
 }
 
 void Init(Local<Object> exports) {
